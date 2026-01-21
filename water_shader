@@ -1,0 +1,83 @@
+shader_type spatial;
+
+uniform sampler2D normal_map;
+uniform sampler2D blicks_noise;
+
+//CONFIG
+
+///WATER
+///
+uniform float hint : hint_range(0.0, 20.0, 0.1);
+uniform float all_amplitude : hint_range(0.0, 1.0, 0.1) = 0.5;
+
+uniform float amplitude_1 : hint_range(0.0, 3.5, 0.1) = 1.0;
+uniform float frequency_1 : hint_range(-1.0, 1.0, 0.1) = 0.5;
+uniform float x_1 : hint_range(-1.0, 1.0, 0.1) = 0.5;
+uniform float y_1 : hint_range(-1.0, 1.0, 0.1) = 0.5;
+///
+uniform float amplitude_2 : hint_range(0.0, 3.5, 0.1) = 1.5;
+uniform float frequency_2 : hint_range(-1.0, 1.0, 0.1) = 0.4;
+uniform float x_2 : hint_range(-1.0, 1.0, 0.1) = 0.8;
+uniform float y_2 : hint_range(-1.0, 1.0, 0.1) = -0.3;
+///
+uniform float amplitude_3 : hint_range(0.0, 3.5, 0.1) = 1.0;
+uniform float frequency_3 : hint_range(-1.0, 1.0, 0.1) = 1.0;
+uniform float x_3 : hint_range(-1.0, 1.0, 0.1) = -0.6;
+uniform float y_3 : hint_range(-1.0, 1.0, 0.1) = -0.4;
+///
+///WATER
+
+uniform vec3 color : source_color = vec3(0.14,0.43,0.43);
+uniform float uv_amp : hint_range(0.0, 10.0, 0.1) = 5.0;
+uniform float normal_amp : hint_range(0.0, 10.0, 0.1) = 1.5;
+
+//PIXEL
+uniform float pixel_amp : hint_range(0.0, 1920.0, 0.1) = 1920.0;
+uniform float pixel_divide : hint_range(0.0, 1080.0, 0.1) = 1080.0;
+//PIXEL
+
+//CONFIG
+
+float wave_cascade(vec2 position, float x, float y){
+	float function_movement = -1.0 * abs(sin(position.y * y) + sin(position.x * x));
+	return function_movement;
+}
+
+float height(vec2 position, float time){
+	float h = 0.0;
+	h += wave_cascade(position * frequency_1 + time * 6.0, x_1,y_1) * amplitude_1 * all_amplitude; // 1
+	h += wave_cascade(position * frequency_2 - time * 5.0, x_2,y_2) * amplitude_2 * all_amplitude; // 2
+	h += wave_cascade(position * frequency_3 - time * 4.0, x_3,y_3) * amplitude_3 * all_amplitude; // 3
+	return h;
+}
+
+void vertex() {
+	VERTEX.y = height(VERTEX.zx, TIME) + hint * all_amplitude;
+}
+
+vec3 blicks(sampler2D texture_of_blick_noise,vec2 uv, float time){
+	vec3 blicks = texture(texture_of_blick_noise, uv * 2.0).rgb;
+	return blicks;
+}
+
+vec3 blick_summary(sampler2D texture_of_blick_noise,vec2 uv, float time){
+	vec3 b = vec3(0.0,0.0,0.0);
+	vec2 divided_uv = uv / 2.0;
+	b += blicks(texture_of_blick_noise, divided_uv + time / 96.0, time);
+	b += blicks(texture_of_blick_noise, divided_uv - time / 128.0, -time);
+	return b;
+}
+
+void fragment() {
+	vec2 _uv = UV;
+	vec2 pixeled_uv = round(_uv * pixel_amp) / pixel_divide;
+
+	vec3 blicks = blick_summary(blicks_noise, _uv, TIME);
+	vec3 mixed_for_albedo = mix(color, blicks, 0.1);
+
+	ALBEDO = mixed_for_albedo;
+	METALLIC = 0.6;
+	NORMAL_MAP = texture(normal_map, pixeled_uv * uv_amp - TIME / 128.0).rgb;
+	NORMAL *= normal_amp;
+	ROUGHNESS = 0.1;
+}
