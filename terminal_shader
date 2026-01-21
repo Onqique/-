@@ -1,0 +1,20 @@
+shader_type canvas_item;
+
+uniform sampler2D screen_texture : hint_screen_texture;
+uniform sampler2D scan_lines_pattern;
+const float curvature = 5.0;
+
+
+void vertex() {
+	// Called for every vertex the material is visible on.
+}
+
+void fragment() {
+	vec2 _uv = UV;
+	vec2 centered_uv = SCREEN_UV * 2.0 - 1.0;
+	vec2 uv_offset = centered_uv.yx / curvature;
+	vec2 warped_uv = centered_uv + centered_uv * uv_offset * uv_offset;
+	vec3 screen_color = texture(screen_texture, (warped_uv + 1.0) / 2.0).rgb;
+	COLOR = vec4(screen_color, 1.0);
+	//COLOR = vec4(warped_uv,0.0,1.0);
+}
